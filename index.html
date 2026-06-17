@@ -4,28 +4,502 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TimeScope</title>
-
-  <!--
-    チラつき防止: テーマをページ描画前に適用する。
-    CSSより先に data-theme を確定させるインラインスクリプト。
-  -->
-  <script>
-    (function() {
-      var saved = localStorage.getItem('ts_theme');
-      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.dataset.theme = saved ?? (prefersDark ? 'dark' : 'light');
-    })();
-  </script>
-
-  <!-- スタイルシート -->
-  <link rel="stylesheet" href="styles/main.css" />
-  <link rel="stylesheet" href="styles/dashboard.css" />
-
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+/* ============================================================
+   main.css — TimeScope 共通スタイル
+   ダーク／ライトモード対応
+   ============================================================ */
+
+/* === テーマ非依存トークン === */
+:root {
+  --font-display:  'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  --font-body:     'SF Pro Text',    -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  --font-mono:     'SF Mono', 'Fira Code', 'Fira Mono', monospace;
+  --sp-xs:  0.375rem; --sp-s: 0.75rem; --sp-m: 1.25rem; --sp-l: 2rem; --sp-xl: 3rem;
+  --radius-s: 8px; --radius-m: 14px; --radius-l: 20px; --radius-xl: 28px;
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 160ms; --dur-mid: 280ms; --dur-slow: 480ms;
+}
+
+/* === ダークモード（デフォルト） === */
+:root, html[data-theme="dark"] {
+  --clr-bg:            #080a0f;
+  --clr-bg-2:          #0d1017;
+  --clr-surface:       rgba(255,255,255,0.045);
+  --clr-surface-hov:   rgba(255,255,255,0.075);
+  --clr-border:        rgba(255,255,255,0.085);
+  --clr-border-bright: rgba(255,255,255,0.18);
+  --clr-accent:        #4f9eff;
+  --clr-accent-dim:    rgba(79,158,255,0.18);
+  --clr-accent-glow:   rgba(79,158,255,0.35);
+  --clr-text-1:        #f0f4ff;
+  --clr-text-2:        rgba(240,244,255,0.55);
+  --clr-text-3:        rgba(240,244,255,0.3);
+  --clr-header-bg:     rgba(8,10,15,0.75);
+  --clr-input-bg:      rgba(255,255,255,0.04);
+  --clr-cat-btn-bg:    rgba(255,255,255,0.03);
+  --clr-cat-btn-sel:   rgba(255,255,255,0.07);
+  --clr-toast-bg:      rgba(30,34,42,0.95);
+  --shadow-glass:      0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07);
+  --shadow-glow:       0 0 24px var(--clr-accent-glow);
+  --splash-bg:         #0d1117;
+  --splash-text:       #e8eaf6;
+  --splash-sub:        rgba(160,180,255,0.5);
+  --splash-icon-shadow: 0 24px 64px rgba(79,158,255,0.25), 0 4px 16px rgba(0,0,0,0.4);
+  --splash-ring-1:     #a5b4fc;
+  --splash-ring-2:     #c4b5fd;
+  --splash-ring-3:     #fca5a5;
+}
+
+/* === ライトモード === */
+html[data-theme="light"] {
+  --clr-bg:            #f0f2f8;
+  --clr-bg-2:          #e8ebf4;
+  --clr-surface:       rgba(255,255,255,0.7);
+  --clr-surface-hov:   rgba(255,255,255,0.9);
+  --clr-border:        rgba(100,120,200,0.14);
+  --clr-border-bright: rgba(100,120,200,0.3);
+  --clr-accent:        #2f7de1;
+  --clr-accent-dim:    rgba(47,125,225,0.12);
+  --clr-accent-glow:   rgba(47,125,225,0.25);
+  --clr-text-1:        #111827;
+  --clr-text-2:        rgba(17,24,39,0.55);
+  --clr-text-3:        rgba(17,24,39,0.3);
+  --clr-header-bg:     rgba(240,242,248,0.82);
+  --clr-input-bg:      rgba(0,0,0,0.03);
+  --clr-cat-btn-bg:    rgba(0,0,0,0.02);
+  --clr-cat-btn-sel:   rgba(0,0,0,0.05);
+  --clr-toast-bg:      rgba(240,242,248,0.97);
+  --shadow-glass:      0 8px 32px rgba(100,120,200,0.1), inset 0 1px 0 rgba(255,255,255,0.8);
+  --shadow-glow:       0 0 24px var(--clr-accent-glow);
+  --splash-bg:         #f4f5f9;
+  --splash-text:       #1a2040;
+  --splash-sub:        rgba(80,100,160,0.6);
+  --splash-icon-shadow: 0 24px 64px rgba(100,120,200,0.18), 0 4px 16px rgba(0,0,0,0.08);
+  --splash-ring-1:     #93c5fd;
+  --splash-ring-2:     #c4b5fd;
+  --splash-ring-3:     #fca5a5;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body {
+  font-family: var(--font-body);
+  background-color: var(--clr-bg);
+  color: var(--clr-text-1);
+  min-height: 100dvh;
+  line-height: 1.6;
+  overflow-x: hidden;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 15% 10%, rgba(79,158,255,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 85% 80%, rgba(167,139,250,0.05) 0%, transparent 60%);
+  background-attachment: fixed;
+  transition: background-color 0.35s var(--ease-smooth), color 0.35s var(--ease-smooth);
+}
+#app { max-width: 860px; margin: 0 auto; padding: 0 var(--sp-m) var(--sp-xl); }
+
+/* ヘッダー */
+.app-header {
+  position: sticky; top: 0; z-index: 100;
+  padding: var(--sp-m) 0;
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border-bottom: 1px solid var(--clr-border);
+  background: var(--clr-header-bg);
+}
+.header-inner {
+  max-width: 860px; margin: 0 auto; padding: 0 var(--sp-m);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-m);
+}
+.logo { display: flex; align-items: center; gap: 0.5rem; user-select: none; }
+.logo-icon {
+  font-size: 1.35rem; color: var(--clr-accent);
+  filter: drop-shadow(0 0 6px var(--clr-accent-glow));
+  animation: pulse-icon 3s ease-in-out infinite;
+}
+@keyframes pulse-icon { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+.logo-text { font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; letter-spacing: -0.03em; color: var(--clr-text-1); }
+.header-meta { display: flex; align-items: center; gap: var(--sp-m); }
+.header-date { font-family: var(--font-mono); font-size: 0.78rem; color: var(--clr-text-2); letter-spacing: 0.04em; }
+.streak-badge {
+  display: flex; align-items: center; gap: 0.3rem;
+  background: var(--clr-surface); border: 1px solid var(--clr-border);
+  border-radius: 999px; padding: 0.3rem 0.75rem; font-size: 0.78rem;
+  cursor: default; transition: background var(--dur-fast) var(--ease-smooth);
+}
+.streak-badge:hover { background: var(--clr-surface-hov); }
+.streak-icon { font-size: 0.9rem; }
+#streak-count { font-family: var(--font-mono); font-weight: 700; color: var(--clr-accent); }
+.streak-label { color: var(--clr-text-2); }
+
+/* タブナビ */
+.tab-nav {
+  display: flex; gap: var(--sp-xs);
+  margin: var(--sp-l) 0 var(--sp-m);
+  background: var(--clr-surface); border: 1px solid var(--clr-border);
+  border-radius: var(--radius-l); padding: 0.3rem;
+}
+.tab-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+  padding: 0.6rem 0.5rem; border: none; border-radius: var(--radius-m);
+  background: transparent; color: var(--clr-text-2);
+  font-family: var(--font-body); font-size: 0.82rem; font-weight: 500;
+  cursor: pointer; transition: all var(--dur-fast) var(--ease-smooth); white-space: nowrap;
+}
+.tab-btn .tab-icon { font-size: 0.95rem; line-height: 1; }
+.tab-btn:hover { color: var(--clr-text-1); background: var(--clr-surface-hov); }
+.tab-btn.active {
+  background: var(--clr-accent-dim); color: var(--clr-accent);
+  border: 1px solid rgba(79,158,255,0.25);
+  box-shadow: 0 0 12px var(--clr-accent-dim);
+}
+
+/* タブパネル */
+.tab-panel { display: none; animation: fade-in var(--dur-mid) var(--ease-smooth); }
+.tab-panel.active { display: block; }
+@keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* セクションヘッダー */
+.section-header { display: flex; align-items: baseline; gap: var(--sp-s); margin-bottom: var(--sp-m); flex-wrap: wrap; }
+.section-title { font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; letter-spacing: -0.025em; color: var(--clr-text-1); }
+.section-subtitle { font-size: 0.82rem; color: var(--clr-text-3); }
+
+/* ガラスカード */
+.glass-card {
+  background: var(--clr-surface); border: 1px solid var(--clr-border);
+  border-radius: var(--radius-l); padding: var(--sp-l);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  transition: border-color var(--dur-fast) var(--ease-smooth);
+}
+.glass-card:hover { border-color: var(--clr-border-bright); }
+
+/* フォーム */
+.tracker-form { display: flex; flex-direction: column; gap: var(--sp-m); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-m); }
+.form-group { display: flex; flex-direction: column; gap: var(--sp-xs); }
+.form-label { font-size: 0.78rem; font-weight: 500; color: var(--clr-text-2); letter-spacing: 0.05em; text-transform: uppercase; }
+.form-input {
+  background: var(--clr-input-bg); border: 1px solid var(--clr-border);
+  border-radius: var(--radius-m); padding: 0.7rem 1rem;
+  color: var(--clr-text-1); font-family: var(--font-mono); font-size: 0.95rem;
+  outline: none; transition: border-color var(--dur-fast), box-shadow var(--dur-fast); width: 100%;
+}
+.form-input::placeholder { color: var(--clr-text-3); }
+.form-input:focus { border-color: var(--clr-accent); box-shadow: 0 0 0 3px var(--clr-accent-dim); }
+.form-input[type="time"] { color-scheme: dark; }
+
+/* カテゴリグリッド */
+.category-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: var(--sp-xs); }
+.cat-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
+  padding: 0.65rem 0.4rem; background: var(--clr-cat-btn-bg);
+  border: 1px solid var(--clr-border); border-radius: var(--radius-m);
+  color: var(--clr-text-2); font-family: var(--font-body); font-size: 0.72rem;
+  cursor: pointer; transition: all var(--dur-fast) var(--ease-smooth); white-space: nowrap;
+}
+.cat-btn .cat-icon { font-size: 1.15rem; line-height: 1; }
+.cat-btn:hover { background: var(--clr-surface-hov); color: var(--clr-text-1); }
+.cat-btn.selected {
+  border-color: currentColor; color: var(--clr-text-1);
+  background: var(--clr-cat-btn-sel); box-shadow: 0 0 10px -2px currentColor;
+}
+
+/* ボタン */
+.btn-primary {
+  display: flex; align-items: center; justify-content: center; gap: var(--sp-s);
+  padding: 0.85rem 1.5rem; background: var(--clr-accent); border: none;
+  border-radius: var(--radius-m); color: #fff; font-family: var(--font-body);
+  font-size: 0.95rem; font-weight: 600; cursor: pointer;
+  letter-spacing: -0.01em; transition: all var(--dur-fast) var(--ease-smooth);
+  position: relative; overflow: hidden;
+}
+.btn-primary::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.12), transparent);
+  pointer-events: none;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px var(--clr-accent-glow); }
+.btn-primary:active { transform: translateY(0); box-shadow: none; }
+.btn-arrow { font-size: 1rem; transition: transform var(--dur-fast); }
+.btn-primary:hover .btn-arrow { transform: translateX(4px); }
+
+/* エントリーリスト */
+.entry-list { display: flex; flex-direction: column; gap: var(--sp-xs); }
+.entry-item {
+  display: flex; align-items: center; gap: var(--sp-m);
+  background: var(--clr-surface); border: 1px solid var(--clr-border);
+  border-radius: var(--radius-m); padding: var(--sp-m) var(--sp-l);
+  animation: slide-in var(--dur-mid) var(--ease-smooth);
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.entry-item:hover { background: var(--clr-surface-hov); border-color: var(--clr-border-bright); }
+@keyframes slide-in { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+.entry-cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 8px currentColor; }
+.entry-info { flex: 1; min-width: 0; }
+.entry-cat-name { font-size: 0.82rem; font-weight: 600; color: var(--clr-text-1); }
+.entry-memo { font-size: 0.78rem; color: var(--clr-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.entry-time-range { font-family: var(--font-mono); font-size: 0.78rem; color: var(--clr-text-2); white-space: nowrap; }
+.entry-duration { font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600; color: var(--clr-accent); white-space: nowrap; }
+.entry-delete {
+  background: none; border: none; color: var(--clr-text-3);
+  cursor: pointer; font-size: 1rem; padding: 0.2rem 0.4rem;
+  border-radius: var(--radius-s); transition: color var(--dur-fast), background var(--dur-fast); flex-shrink: 0;
+}
+.entry-delete:hover { color: #f87171; background: rgba(248,113,113,0.1); }
+.entry-count-badge {
+  font-family: var(--font-mono); font-size: 0.72rem; padding: 0.2rem 0.6rem;
+  background: var(--clr-surface); border: 1px solid var(--clr-border);
+  border-radius: 999px; color: var(--clr-text-2);
+}
+.empty-state {
+  text-align: center; color: var(--clr-text-3); font-size: 0.88rem; line-height: 1.8;
+  padding: var(--sp-xl) var(--sp-l); border: 1px dashed var(--clr-border);
+  border-radius: var(--radius-l); display: none;
+}
+
+/* トースト */
+.toast {
+  position: fixed; bottom: var(--sp-l); left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--clr-toast-bg); border: 1px solid var(--clr-border-bright);
+  border-radius: var(--radius-m); padding: 0.75rem 1.5rem;
+  color: var(--clr-text-1); font-size: 0.88rem; white-space: nowrap;
+  pointer-events: none; opacity: 0;
+  transition: opacity var(--dur-fast), transform var(--dur-fast);
+  z-index: 999; backdrop-filter: blur(12px); box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--clr-border); border-radius: 999px; }
+
+/* ============================================================
+   dashboard.css — ダッシュボード専用スタイル
+   ============================================================ */
+.summary-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--sp-s); margin-bottom: var(--sp-l);
+}
+.summary-card {
+  background: var(--clr-surface); border: 1px solid var(--clr-border);
+  border-radius: var(--radius-l); padding: var(--sp-m);
+  display: flex; flex-direction: column; gap: 0.4rem;
+  transition: all var(--dur-fast) var(--ease-smooth);
+  position: relative; overflow: hidden; cursor: default;
+}
+.summary-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--cat-color, var(--clr-accent)); opacity: 0.7;
+  border-radius: var(--radius-l) var(--radius-l) 0 0;
+}
+.summary-card:hover { background: var(--clr-surface-hov); border-color: var(--clr-border-bright); transform: translateY(-2px); box-shadow: var(--shadow-glass); }
+.summary-card-icon { font-size: 1.1rem; line-height: 1; }
+.summary-card-label { font-size: 0.72rem; font-weight: 500; color: var(--clr-text-2); text-transform: uppercase; letter-spacing: 0.06em; }
+.summary-card-value { font-family: var(--font-mono); font-size: 1.35rem; font-weight: 700; color: var(--clr-text-1); letter-spacing: -0.03em; }
+
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-m); margin-bottom: var(--sp-l); }
+.chart-card { display: flex; flex-direction: column; gap: var(--sp-m); }
+.chart-card--wide { grid-column: 1 / -1; }
+.card-title { font-family: var(--font-display); font-size: 0.9rem; font-weight: 600; color: var(--clr-text-2); letter-spacing: -0.01em; }
+.chart-container { position: relative; width: 100%; height: 220px; }
+.chart-container--tall { height: 260px; }
+
+.weekly-stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--sp-s); margin-top: var(--sp-l); }
+.weekly-stat-card {
+  background: var(--clr-surface); border: 1px solid var(--clr-border);
+  border-radius: var(--radius-l); padding: var(--sp-m);
+  display: flex; flex-direction: column; gap: 0.4rem;
+  transition: all var(--dur-fast) var(--ease-smooth);
+}
+.weekly-stat-card:hover { background: var(--clr-surface-hov); border-color: var(--clr-border-bright); }
+.weekly-stat-label { font-size: 0.72rem; color: var(--clr-text-2); display: flex; align-items: center; gap: 0.3rem; }
+.weekly-stat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.weekly-stat-value { font-family: var(--font-mono); font-size: 1.25rem; font-weight: 700; color: var(--clr-text-1); letter-spacing: -0.03em; }
+.weekly-stat-sub { font-size: 0.72rem; color: var(--clr-text-3); }
+
+.goals-list { display: flex; flex-direction: column; gap: var(--sp-xs); margin-bottom: var(--sp-m); }
+.goal-item {
+  display: flex; align-items: center; gap: var(--sp-m);
+  background: var(--clr-surface); border: 1px solid var(--clr-border);
+  border-radius: var(--radius-m); padding: var(--sp-m) var(--sp-l);
+  transition: all var(--dur-fast) var(--ease-smooth);
+}
+.goal-item:hover { background: var(--clr-surface-hov); border-color: var(--clr-border-bright); }
+.goal-cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.goal-cat-name { font-size: 0.88rem; font-weight: 500; color: var(--clr-text-1); min-width: 60px; }
+.goal-cat-icon { font-size: 1rem; line-height: 1; }
+.goal-input-wrap { display: flex; align-items: center; gap: 0.4rem; margin-left: auto; }
+.goal-input {
+  background: var(--clr-surface-hov); border: 1px solid var(--clr-border);
+  border-radius: var(--radius-s); padding: 0.35rem 0.6rem;
+  color: var(--clr-text-1); font-family: var(--font-mono); font-size: 0.88rem;
+  font-weight: 600; width: 60px; text-align: right;
+  outline: none; transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.goal-input:focus { border-color: var(--clr-accent); box-shadow: 0 0 0 2px var(--clr-accent-dim); }
+.goal-unit { font-size: 0.78rem; color: var(--clr-text-3); }
+
+.diff-list { display: flex; flex-direction: column; gap: var(--sp-s); }
+.diff-item {
+  background: var(--clr-surface); border: 1px solid var(--clr-border);
+  border-radius: var(--radius-m); padding: var(--sp-m) var(--sp-l);
+  display: grid; grid-template-columns: auto 1fr auto;
+  align-items: center; gap: var(--sp-m);
+  transition: all var(--dur-fast) var(--ease-smooth);
+}
+.diff-item:hover { background: var(--clr-surface-hov); }
+.diff-cat-info { display: flex; align-items: center; gap: var(--sp-s); min-width: 80px; }
+.diff-cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.diff-cat-name { font-size: 0.85rem; font-weight: 500; color: var(--clr-text-1); }
+.diff-bar-wrap { position: relative; height: 6px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; }
+.diff-bar-ideal { position: absolute; top: 0; left: 0; height: 100%; background: rgba(255,255,255,0.12); border-radius: 999px; }
+.diff-bar-actual { position: absolute; top: 0; left: 0; height: 100%; border-radius: 999px; transition: width var(--dur-slow) var(--ease-smooth); }
+.diff-values { text-align: right; white-space: nowrap; }
+.diff-actual { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--clr-text-1); }
+.diff-ideal { font-family: var(--font-mono); font-size: 0.72rem; color: var(--clr-text-3); display: block; }
+.diff-delta { font-family: var(--font-mono); font-size: 0.72rem; margin-top: 0.15rem; }
+.diff-delta.over   { color: #34d399; }
+.diff-delta.under  { color: #f87171; }
+.diff-delta.on-track { color: var(--clr-text-2); }
+
+/* レスポンシブ */
+@media (max-width: 600px) {
+  .header-date { display: none; }
+  .tab-btn .tab-label { font-size: 0.72rem; }
+  .form-row { grid-template-columns: 1fr; }
+  .entry-item { padding: var(--sp-s) var(--sp-m); flex-wrap: wrap; }
+  .entry-time-range { display: none; }
+  .glass-card { padding: var(--sp-m); }
+  .charts-grid { grid-template-columns: 1fr; }
+  .chart-card--wide { grid-column: 1; }
+  .summary-grid { grid-template-columns: repeat(3, 1fr); }
+  .diff-item { grid-template-columns: auto 1fr; grid-template-rows: auto auto; }
+  .diff-values { grid-column: 2; grid-row: 2; text-align: left; }
+  .diff-bar-wrap { grid-column: 1 / -1; grid-row: 3; margin-top: var(--sp-xs); }
+  .goal-item { flex-wrap: wrap; padding: var(--sp-m); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* ============================================================
+   splash — ブランドローディング画面
+   ============================================================ */
+#splash {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--splash-bg);
+  transition: opacity 0.6s cubic-bezier(0.22,1,0.36,1), transform 0.6s cubic-bezier(0.22,1,0.36,1);
+}
+#splash.hide {
+  opacity: 0; transform: scale(1.04); pointer-events: none;
+}
+.splash-icon {
+  width: 120px; height: 120px;
+  border-radius: 28px;
+  box-shadow: var(--splash-icon-shadow);
+  animation: splash-pop 0.7s cubic-bezier(0.22,1,0.36,1) both;
+}
+@keyframes splash-pop {
+  from { opacity: 0; transform: scale(0.7); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.splash-wordmark {
+  margin-top: 1.5rem;
+  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  font-size: 1.8rem; font-weight: 700; letter-spacing: -0.04em;
+  color: var(--splash-text);
+  animation: splash-fade-up 0.7s 0.15s cubic-bezier(0.22,1,0.36,1) both;
+}
+.splash-tagline {
+  margin-top: 0.4rem;
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.75rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--splash-sub);
+  animation: splash-fade-up 0.7s 0.25s cubic-bezier(0.22,1,0.36,1) both;
+}
+.splash-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  animation: splash-ring-spin linear infinite;
+}
+.splash-ring-1 {
+  width: 200px; height: 200px;
+  border-top-color: #a5b4fc;
+  border-right-color: #c4b5fd;
+  animation-duration: 4s;
+}
+.splash-ring-2 {
+  width: 250px; height: 250px;
+  border-bottom-color: #fca5a5;
+  border-left-color: #c4b5fd;
+  animation-duration: 6s; animation-direction: reverse;
+}
+.splash-ring-3 {
+  width: 300px; height: 300px;
+  border-top-color: rgba(165,180,252,0.3);
+  border-right-color: rgba(196,181,253,0.3);
+  animation-duration: 9s;
+}
+@keyframes splash-ring-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes splash-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.splash-dots {
+  display: flex; gap: 6px; margin-top: 2.5rem;
+  animation: splash-fade-up 0.7s 0.4s cubic-bezier(0.22,1,0.36,1) both;
+}
+.splash-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: linear-gradient(135deg, #a5b4fc, #fca5a5);
+  animation: splash-dot-bounce 1.2s ease-in-out infinite;
+}
+.splash-dot:nth-child(2) { animation-delay: 0.15s; }
+.splash-dot:nth-child(3) { animation-delay: 0.30s; }
+@keyframes splash-dot-bounce {
+  0%,100% { transform: translateY(0); opacity: 0.5; }
+  50%      { transform: translateY(-6px); opacity: 1; }
+}
+
+/* === テーマ切替ボタン === */
+.theme-toggle {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  background: var(--clr-surface); border: 1px solid var(--clr-border);
+  border-radius: 50%; cursor: pointer;
+  font-size: 1rem; line-height: 1;
+  transition: all var(--dur-fast) var(--ease-smooth);
+  flex-shrink: 0;
+}
+.theme-toggle:hover {
+  background: var(--clr-surface-hov); border-color: var(--clr-border-bright);
+  transform: rotate(20deg);
+}
+/* ライトモード時の body 背景グラデーション */
+html[data-theme="light"] body {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 15% 10%, rgba(47,125,225,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 85% 80%, rgba(167,139,250,0.04) 0%, transparent 60%);
+}
+/* ライトモード時のカード・インプット調整 */
+html[data-theme="light"] .glass-card {
+  backdrop-filter: blur(16px) saturate(1.8);
+  -webkit-backdrop-filter: blur(16px) saturate(1.8);
+}
+html[data-theme="light"] .form-input { color-scheme: light; }
+html[data-theme="light"] .form-input[type="time"] { color-scheme: light; }
+/* テーマ遷移 */
+*, *::before, *::after { transition-property: background-color, border-color, color, box-shadow; transition-duration: 0.25s; transition-timing-function: var(--ease-smooth); }
+  </style>
 </head>
 <body>
-
   <!-- ========== スプラッシュ画面 ========== -->
   <div id="splash" role="status" aria-label="読み込み中">
     <div class="splash-ring splash-ring-3"></div>
@@ -43,10 +517,7 @@
     </div>
   </div>
 
-  <!-- ========== アプリ全体ラッパー ========== -->
   <div id="app">
-
-    <!-- ヘッダー -->
     <header class="app-header">
       <div class="header-inner">
         <div class="logo">
@@ -60,17 +531,12 @@
             <span id="streak-count">0</span>
             <span class="streak-label">day streak</span>
           </div>
-          <!-- テーマ切替ボタン -->
-          <button class="theme-toggle" id="theme-toggle"
-                  title="ダーク／ライト切替" aria-label="テーマ切替">🌙</button>
+          <button class="theme-toggle" id="theme-toggle" title="ダーク／ライト切替" aria-label="テーマ切替">🌙</button>
         </div>
       </div>
     </header>
 
-    <!-- メインコンテンツ -->
     <main class="app-main">
-
-      <!-- タブナビ -->
       <nav class="tab-nav" role="tablist">
         <button class="tab-btn active" data-tab="tracker" role="tab" aria-selected="true">
           <span class="tab-icon">⏱</span><span class="tab-label">記録</span>
@@ -109,8 +575,7 @@
           </div>
           <div class="form-group">
             <label class="form-label" for="input-memo">メモ（任意）</label>
-            <input class="form-input" type="text" id="input-memo"
-                   placeholder="例: 英語の勉強、チームMTG..." maxlength="80" />
+            <input class="form-input" type="text" id="input-memo" placeholder="例: 英語の勉強、チームMTG..." maxlength="80" />
           </div>
           <button class="btn-primary" id="btn-add-entry">
             <span>記録を追加</span><span class="btn-arrow">→</span>
@@ -121,9 +586,7 @@
           <span class="entry-count-badge" id="entry-count-badge">0 件</span>
         </div>
         <div id="entry-list" class="entry-list"></div>
-        <p class="empty-state" id="empty-state">
-          まだ記録がありません。<br>最初の活動を記録してみましょう。
-        </p>
+        <p class="empty-state" id="empty-state">まだ記録がありません。<br>最初の活動を記録してみましょう。</p>
       </section>
 
       <!-- 今日のダッシュボードタブ -->
@@ -153,9 +616,7 @@
         </div>
         <div class="glass-card chart-card chart-card--wide">
           <h3 class="card-title">カテゴリ別・週間推移</h3>
-          <div class="chart-container chart-container--tall">
-            <canvas id="chart-weekly"></canvas>
-          </div>
+          <div class="chart-container chart-container--tall"><canvas id="chart-weekly"></canvas></div>
         </div>
         <div class="weekly-stats-grid" id="weekly-stats-grid"></div>
       </section>
@@ -173,20 +634,375 @@
         </div>
         <div class="diff-list" id="diff-list"></div>
       </section>
-
     </main>
 
-    <!-- トースト通知 -->
     <div id="toast" class="toast" aria-live="polite"></div>
+  </div>
 
-  </div><!-- /#app -->
+  <script>
+/* ============================================================
+   storage.js — localStorage管理
+   ============================================================ */
+const Storage = (() => {
+  const KEYS = { ENTRIES:'ts_entries', GOALS:'ts_goals', STREAK:'ts_streak', LAST_DATE:'ts_last_date' };
+  function _get(key, fallback=null) { try { const r=localStorage.getItem(key); return r!==null?JSON.parse(r):fallback; } catch { return fallback; } }
+  function _set(key, value) { try { localStorage.setItem(key,JSON.stringify(value)); } catch(e) { console.error('[Storage] write failed:',e); } }
+  function getAllEntries() { return _get(KEYS.ENTRIES,{}); }
+  function getEntriesByDate(dk) { return getAllEntries()[dk]??[]; }
+  function addEntry(dk,entry) { const a=getAllEntries(); if(!a[dk])a[dk]=[]; a[dk].push(entry); _set(KEYS.ENTRIES,a); }
+  function deleteEntry(dk,id) { const a=getAllEntries(); if(!a[dk])return; a[dk]=a[dk].filter(e=>e.id!==id); _set(KEYS.ENTRIES,a); }
+  function getGoals() { return _get(KEYS.GOALS,{}); }
+  function setGoal(cat,h) { const g=getGoals(); g[cat]=h; _set(KEYS.GOALS,g); }
+  function getStreak() { return _get(KEYS.STREAK,{count:0}); }
+  function setStreak(s) { _set(KEYS.STREAK,s); }
+  function getLastDate() { return _get(KEYS.LAST_DATE,null); }
+  function setLastDate(dk) { _set(KEYS.LAST_DATE,dk); }
+  return { getAllEntries,getEntriesByDate,addEntry,deleteEntry,getGoals,setGoal,getStreak,setStreak,getLastDate,setLastDate };
+})();
 
-  <!-- スクリプト（依存順） -->
-  <script src="scripts/storage.js"></script>
-  <script src="scripts/analytics.js"></script>
-  <script src="scripts/tracker.js"></script>
-  <script src="scripts/ui.js"></script>
-  <script src="scripts/app.js"></script>
+/* ============================================================
+   analytics.js — 計算・分析
+   ============================================================ */
+const Analytics = (() => {
+  const CATEGORIES = [
+    { id:'study',     label:'勉強',   icon:'📚', color:'#60a5fa' },
+    { id:'work',      label:'仕事',   icon:'💼', color:'#a78bfa' },
+    { id:'sleep',     label:'睡眠',   icon:'🌙', color:'#34d399' },
+    { id:'sns',       label:'SNS',    icon:'📱', color:'#f472b6' },
+    { id:'exercise',  label:'運動',   icon:'🏃', color:'#fb923c' },
+    { id:'hobby',     label:'趣味',   icon:'🎮', color:'#facc15' },
+    { id:'transport', label:'移動',   icon:'🚃', color:'#94a3b8' },
+    { id:'meal',      label:'食事',   icon:'🍽', color:'#4ade80' },
+    { id:'other',     label:'その他', icon:'⊹',  color:'#64748b' },
+  ];
+  function getCategoryById(id) { return CATEGORIES.find(c=>c.id===id)??CATEGORIES[CATEGORIES.length-1]; }
+  function timeToMinutes(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
+  function formatDuration(min) { if(min<0)return'0m'; const h=Math.floor(min/60),m=Math.round(min%60); if(h===0)return`${m}m`; if(m===0)return`${h}h`; return`${h}h ${m}m`; }
+  function formatHoursDecimal(min) { return (min/60).toFixed(1)+'h'; }
+  function calcDuration(s,e) { let sm=timeToMinutes(s),em=timeToMinutes(e); if(em<sm)em+=1440; return em-sm; }
+  function sumByCategory(entries) { const r={}; CATEGORIES.forEach(c=>{r[c.id]=0;}); entries.forEach(e=>{if(r[e.category]!==undefined)r[e.category]+=e.duration;}); return r; }
+  function buildSummary(sumMap) { return CATEGORIES.map(c=>({...c,minutes:sumMap[c.id]??0})).filter(c=>c.minutes>0).sort((a,b)=>b.minutes-a.minutes); }
+  function toDateKey(d) { const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0'); return`${y}-${m}-${dd}`; }
+  function formatDateLabel(dk) { const[,m,d]=dk.split('-'); return`${parseInt(m)}/${parseInt(d)}`; }
+  function getLastNDates(n) { const r=[]; for(let i=n-1;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);r.push(toDateKey(d));} return r; }
+  function buildWeeklyChartData(dateKeys,allEntries) {
+    const labels=dateKeys.map(formatDateLabel);
+    const datasets=CATEGORIES.map(cat=>({
+      label:cat.label,
+      data:dateKeys.map(dk=>{const entries=allEntries[dk]??[];const sum=entries.filter(e=>e.category===cat.id).reduce((a,e)=>a+e.duration,0);return parseFloat((sum/60).toFixed(2));}),
+      backgroundColor:cat.color+'cc', borderColor:cat.color, borderWidth:1.5, borderRadius:4,
+    }));
+    return { labels, datasets:datasets.filter(ds=>ds.data.some(v=>v>0)) };
+  }
+  function weeklyTotalByCategory(dateKeys,allEntries) {
+    const r={}; CATEGORIES.forEach(c=>{r[c.id]=0;});
+    dateKeys.forEach(dk=>{(allEntries[dk]??[]).forEach(e=>{if(r[e.category]!==undefined)r[e.category]+=e.duration;});});
+    return r;
+  }
+  function buildDiffData(sumMap,goals) {
+    return CATEGORIES.filter(c=>goals[c.id]!=null&&goals[c.id]>0).map(c=>({...c,actual:sumMap[c.id]??0,ideal:(goals[c.id]??0)*60,delta:(sumMap[c.id]??0)-(goals[c.id]??0)*60}));
+  }
+  function updateStreak(todayKey,todayEntries) {
+    if(todayEntries.length===0)return;
+    const streak=Storage.getStreak(),lastDate=Storage.getLastDate();
+    if(lastDate===todayKey)return;
+    const yd=new Date();yd.setDate(yd.getDate()-1);const ydKey=toDateKey(yd);
+    if(lastDate===ydKey){streak.count+=1;}else{streak.count=1;}
+    Storage.setStreak(streak);Storage.setLastDate(todayKey);
+  }
+  return { CATEGORIES,getCategoryById,timeToMinutes,formatDuration,formatHoursDecimal,calcDuration,sumByCategory,buildSummary,toDateKey,formatDateLabel,getLastNDates,buildWeeklyChartData,weeklyTotalByCategory,buildDiffData,updateStreak };
+})();
 
+/* ============================================================
+   tracker.js — フォーム制御・記録追加
+   ============================================================ */
+const Tracker = (() => {
+  let selectedCategory = null;
+  function renderCategoryGrid() {
+    const grid=document.getElementById('category-grid');
+    if(!grid)return;
+    grid.innerHTML='';
+    Analytics.CATEGORIES.forEach(cat=>{
+      const btn=document.createElement('button');
+      btn.className='cat-btn'; btn.dataset.id=cat.id; btn.type='button';
+      btn.style.color=cat.color; btn.setAttribute('aria-label',cat.label);
+      btn.innerHTML=`<span class="cat-icon">${cat.icon}</span><span>${cat.label}</span>`;
+      btn.addEventListener('click',()=>selectCategory(cat.id));
+      grid.appendChild(btn);
+    });
+  }
+  function selectCategory(catId) {
+    selectedCategory=catId;
+    document.querySelectorAll('#category-grid .cat-btn').forEach(btn=>btn.classList.toggle('selected',btn.dataset.id===catId));
+  }
+  function setDefaultTimes() {
+    const now=new Date(),hh=String(now.getHours()).padStart(2,'0'),mm=String(now.getMinutes()).padStart(2,'0'),t=`${hh}:${mm}`;
+    const s=document.getElementById('input-start'),e=document.getElementById('input-end');
+    if(s&&!s.value)s.value=t; if(e&&!e.value)e.value=t;
+  }
+  function validate(start,end,category) {
+    if(!start||!end)return{ok:false,message:'開始・終了時間を入力してください'};
+    if(!category)return{ok:false,message:'カテゴリを選択してください'};
+    const d=Analytics.calcDuration(start,end);
+    if(d<=0)return{ok:false,message:'終了時間は開始時間より後に設定してください'};
+    if(d>1440)return{ok:false,message:'記録できるのは24時間以内です'};
+    return{ok:true,message:''};
+  }
+  function addEntry() {
+    const start=document.getElementById('input-start')?.value??'';
+    const end=document.getElementById('input-end')?.value??'';
+    const memo=(document.getElementById('input-memo')?.value??'').trim();
+    const category=selectedCategory;
+    const{ok,message}=validate(start,end,category);
+    if(!ok){UI.showToast(message,'error');return;}
+    const duration=Analytics.calcDuration(start,end);
+    const todayKey=Analytics.toDateKey(new Date());
+    const entry={id:`${Date.now()}-${Math.random().toString(36).slice(2,7)}`,category,start,end,memo,duration,createdAt:Date.now()};
+    Storage.addEntry(todayKey,entry);
+    Analytics.updateStreak(todayKey,Storage.getEntriesByDate(todayKey));
+    UI.refresh();
+    UI.showToast(`${Analytics.getCategoryById(category).label} を記録しました ✓`);
+    _resetForm();
+  }
+  function _resetForm() {
+    const m=document.getElementById('input-memo');if(m)m.value='';
+    selectedCategory=null;
+    document.querySelectorAll('#category-grid .cat-btn').forEach(btn=>btn.classList.remove('selected'));
+    setDefaultTimes();
+  }
+  function bindEvents() {
+    document.getElementById('btn-add-entry')?.addEventListener('click',addEntry);
+    document.getElementById('input-memo')?.addEventListener('keydown',e=>{if(e.key==='Enter')addEntry();});
+  }
+  return { renderCategoryGrid,setDefaultTimes,bindEvents };
+})();
+
+/* ============================================================
+   ui.js — DOM描画・更新
+   ============================================================ */
+const UI = (() => {
+  const _charts={};
+  let _toastTimer=null;
+
+  function showToast(message,type='info') {
+    const t=document.getElementById('toast');if(!t)return;
+    clearTimeout(_toastTimer);
+    t.textContent=message;
+    t.className=`toast show${type==='error'?' toast--error':''}`;
+    _toastTimer=setTimeout(()=>t.classList.remove('show'),2800);
+  }
+
+  function renderHeader() {
+    const el=document.getElementById('today-date');
+    if(el)el.textContent=new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+    const c=document.getElementById('streak-count');
+    if(c)c.textContent=Storage.getStreak().count;
+  }
+
+  function renderEntryList() {
+    const todayKey=Analytics.toDateKey(new Date());
+    const entries=Storage.getEntriesByDate(todayKey);
+    const listEl=document.getElementById('entry-list');
+    const emptyEl=document.getElementById('empty-state');
+    const badge=document.getElementById('entry-count-badge');
+    if(!listEl)return;
+    listEl.innerHTML='';
+    if(badge)badge.textContent=`${entries.length} 件`;
+    if(entries.length===0){if(emptyEl)emptyEl.style.display='block';return;}
+    if(emptyEl)emptyEl.style.display='none';
+    [...entries].sort((a,b)=>Analytics.timeToMinutes(a.start)-Analytics.timeToMinutes(b.start)).forEach(entry=>{
+      const cat=Analytics.getCategoryById(entry.category);
+      const item=document.createElement('div');
+      item.className='entry-item';item.dataset.id=entry.id;
+      item.innerHTML=`
+        <span class="entry-cat-dot" style="background:${cat.color};color:${cat.color}"></span>
+        <div class="entry-info">
+          <div class="entry-cat-name">${cat.icon} ${cat.label}</div>
+          ${entry.memo?`<div class="entry-memo">${_esc(entry.memo)}</div>`:''}
+        </div>
+        <span class="entry-time-range">${entry.start} – ${entry.end}</span>
+        <span class="entry-duration">${Analytics.formatDuration(entry.duration)}</span>
+        <button class="entry-delete" data-id="${entry.id}" aria-label="削除">✕</button>`;
+      listEl.appendChild(item);
+    });
+    listEl.querySelectorAll('.entry-delete').forEach(btn=>btn.addEventListener('click',e=>{
+      Storage.deleteEntry(todayKey,e.currentTarget.dataset.id);refresh();showToast('記録を削除しました');
+    }));
+  }
+
+  function renderSummaryGrid() {
+    const grid=document.getElementById('summary-grid');if(!grid)return;
+    const summary=Analytics.buildSummary(Analytics.sumByCategory(Storage.getEntriesByDate(Analytics.toDateKey(new Date()))));
+    grid.innerHTML='';
+    if(summary.length===0){grid.innerHTML='<p style="color:var(--clr-text-3);font-size:.85rem;padding:.5rem 0">記録を追加するとここに表示されます</p>';return;}
+    summary.forEach(c=>{
+      const card=document.createElement('div');card.className='summary-card';card.style.setProperty('--cat-color',c.color);
+      card.innerHTML=`<span class="summary-card-icon">${c.icon}</span><span class="summary-card-label">${c.label}</span><div><span class="summary-card-value">${Analytics.formatDuration(c.minutes)}</span></div>`;
+      grid.appendChild(card);
+    });
+  }
+
+  function renderPieChart() {
+    const canvas=document.getElementById('chart-pie');if(!canvas)return;
+    if(_charts.pie){_charts.pie.destroy();delete _charts.pie;}
+    const summary=Analytics.buildSummary(Analytics.sumByCategory(Storage.getEntriesByDate(Analytics.toDateKey(new Date()))));
+    if(summary.length===0){_emptyCanvas(canvas,'記録がありません');return;}
+    _charts.pie=new Chart(canvas,{type:'doughnut',data:{labels:summary.map(c=>`${c.icon} ${c.label}`),datasets:[{data:summary.map(c=>c.minutes),backgroundColor:summary.map(c=>c.color+'cc'),borderColor:summary.map(c=>c.color),borderWidth:1.5,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'right',labels:{color:'#a0aec0',font:{size:11},boxWidth:10,padding:10,usePointStyle:true}},tooltip:{callbacks:{label:ctx=>` ${Analytics.formatDuration(ctx.raw)}`},backgroundColor:'rgba(13,16,23,0.95)',borderColor:'rgba(255,255,255,0.1)',borderWidth:1}}}});
+  }
+
+  function renderBarChart() {
+    const canvas=document.getElementById('chart-bar');if(!canvas)return;
+    if(_charts.bar){_charts.bar.destroy();delete _charts.bar;}
+    const summary=Analytics.buildSummary(Analytics.sumByCategory(Storage.getEntriesByDate(Analytics.toDateKey(new Date()))));
+    if(summary.length===0){_emptyCanvas(canvas,'記録がありません');return;}
+    _charts.bar=new Chart(canvas,{type:'bar',data:{labels:summary.map(c=>`${c.icon} ${c.label}`),datasets:[{label:'時間(h)',data:summary.map(c=>parseFloat((c.minutes/60).toFixed(2))),backgroundColor:summary.map(c=>c.color+'bb'),borderColor:summary.map(c=>c.color),borderWidth:1.5,borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${Analytics.formatDuration(ctx.raw*60)}`},backgroundColor:'rgba(13,16,23,0.95)',borderColor:'rgba(255,255,255,0.1)',borderWidth:1}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:10}}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:10}},beginAtZero:true}}}});
+  }
+
+  function renderWeeklyChart() {
+    const canvas=document.getElementById('chart-weekly');if(!canvas)return;
+    if(_charts.weekly){_charts.weekly.destroy();delete _charts.weekly;}
+    const dateKeys=Analytics.getLastNDates(7);
+    const chartData=Analytics.buildWeeklyChartData(dateKeys,Storage.getAllEntries());
+    if(chartData.datasets.length===0){_emptyCanvas(canvas,'過去7日間に記録がありません');return;}
+    _charts.weekly=new Chart(canvas,{type:'bar',data:chartData,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#a0aec0',font:{size:10},boxWidth:8,padding:8,usePointStyle:true}},tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>` ${ctx.dataset.label}: ${Analytics.formatDuration(ctx.raw*60)}`},backgroundColor:'rgba(13,16,23,0.95)',borderColor:'rgba(255,255,255,0.1)',borderWidth:1}},scales:{x:{stacked:true,grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:11}}},y:{stacked:true,grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b7280',font:{size:11}},beginAtZero:true}}}});
+  }
+
+  function renderWeeklyStats() {
+    const grid=document.getElementById('weekly-stats-grid');if(!grid)return;
+    const dateKeys=Analytics.getLastNDates(7);
+    const weeklySum=Analytics.weeklyTotalByCategory(dateKeys,Storage.getAllEntries());
+    grid.innerHTML='';
+    const entries=Object.entries(weeklySum).map(([id,min])=>({...Analytics.getCategoryById(id),minutes:min})).filter(c=>c.minutes>0).sort((a,b)=>b.minutes-a.minutes);
+    if(entries.length===0){grid.innerHTML='<p style="color:var(--clr-text-3);font-size:.85rem;padding:.5rem 0">過去7日間に記録がありません</p>';return;}
+    entries.forEach(c=>{
+      const card=document.createElement('div');card.className='weekly-stat-card';
+      card.innerHTML=`<div class="weekly-stat-label"><span class="weekly-stat-dot" style="background:${c.color}"></span>${c.icon} ${c.label}</div><div class="weekly-stat-value">${Analytics.formatDuration(c.minutes)}</div><div class="weekly-stat-sub">週合計 / 平均 ${Analytics.formatDuration(Math.round(c.minutes/7))}/日</div>`;
+      grid.appendChild(card);
+    });
+  }
+
+  function renderGoalsList() {
+    const list=document.getElementById('goals-list');if(!list)return;
+    const goals=Storage.getGoals();list.innerHTML='';
+    Analytics.CATEGORIES.forEach(cat=>{
+      const item=document.createElement('div');item.className='goal-item';
+      item.innerHTML=`<span class="goal-cat-dot" style="background:${cat.color}"></span><span class="goal-cat-icon">${cat.icon}</span><span class="goal-cat-name">${cat.label}</span><div class="goal-input-wrap"><input class="goal-input" type="number" min="0" max="24" step="0.5" placeholder="—" value="${goals[cat.id]??''}" data-cat="${cat.id}" aria-label="${cat.label}の理想時間"/><span class="goal-unit">h / 日</span></div>`;
+      list.appendChild(item);
+    });
+    list.querySelectorAll('.goal-input').forEach(input=>input.addEventListener('change',e=>{
+      const val=parseFloat(e.target.value),cat=e.target.dataset.cat;
+      if(!isNaN(val)&&val>=0){Storage.setGoal(cat,val);renderDiffList();showToast(`${Analytics.getCategoryById(cat).label} の目標を ${val}h に設定しました`);}
+    }));
+  }
+
+  function renderDiffList() {
+    const list=document.getElementById('diff-list');if(!list)return;
+    const todayKey=Analytics.toDateKey(new Date());
+    const diffData=Analytics.buildDiffData(Analytics.sumByCategory(Storage.getEntriesByDate(todayKey)),Storage.getGoals());
+    list.innerHTML='';
+    if(diffData.length===0){list.innerHTML='<p style="color:var(--clr-text-3);font-size:.85rem;padding:.5rem 0">目標を設定するとここに差分が表示されます</p>';return;}
+    diffData.forEach(c=>{
+      const maxMin=Math.max(c.ideal,c.actual,1);
+      const barI=Math.min((c.ideal/maxMin)*100,100),barA=Math.min((c.actual/maxMin)*100,100);
+      let dc='on-track',dt='目標どおり';
+      if(c.delta>0){dc='over';dt=`+${Analytics.formatDuration(c.delta)} 超過`;}
+      else if(c.delta<0){dc='under';dt=`${Analytics.formatDuration(Math.abs(c.delta))} 不足`;}
+      const item=document.createElement('div');item.className='diff-item';
+      item.innerHTML=`<div class="diff-cat-info"><span class="diff-cat-dot" style="background:${c.color}"></span><span class="diff-cat-name">${c.icon} ${c.label}</span></div><div class="diff-bar-wrap"><div class="diff-bar-ideal" style="width:${barI}%"></div><div class="diff-bar-actual" style="width:${barA}%;background:${c.color}"></div></div><div class="diff-values"><span class="diff-actual">${Analytics.formatDuration(c.actual)}</span><span class="diff-ideal">目標 ${Analytics.formatHoursDecimal(c.ideal)}</span><div class="diff-delta ${dc}">${dt}</div></div>`;
+      list.appendChild(item);
+    });
+  }
+
+  function bindTabNav() {
+    const btns=document.querySelectorAll('.tab-btn'),panels=document.querySelectorAll('.tab-panel');
+    btns.forEach(btn=>btn.addEventListener('click',()=>{
+      const tabId=btn.dataset.tab;
+      btns.forEach(b=>{b.classList.toggle('active',b.dataset.tab===tabId);b.setAttribute('aria-selected',b.dataset.tab===tabId);});
+      panels.forEach(p=>p.classList.toggle('active',p.id===`tab-${tabId}`));
+      _onTabChange(tabId);
+    }));
+  }
+
+  function _onTabChange(tabId) {
+    if(tabId==='dashboard'){renderSummaryGrid();renderPieChart();renderBarChart();}
+    else if(tabId==='weekly'){renderWeeklyChart();renderWeeklyStats();}
+    else if(tabId==='goals'){renderGoalsList();renderDiffList();}
+    else if(tabId==='tracker'){renderEntryList();}
+  }
+
+  function refresh() {
+    const active=document.querySelector('.tab-panel.active');
+    const tabId=active?.id?.replace('tab-','')??'tracker';
+    renderHeader();_onTabChange(tabId);
+  }
+
+  function _esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
+  function _emptyCanvas(canvas,text){const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='rgba(255,255,255,0.2)';ctx.font='13px -apple-system,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,canvas.width/2,canvas.height/2);}
+
+  return { showToast,renderHeader,renderEntryList,renderSummaryGrid,renderPieChart,renderBarChart,renderWeeklyChart,renderWeeklyStats,renderGoalsList,renderDiffList,bindTabNav,refresh };
+})();
+
+/* ============================================================
+   app.js — 初期化・全体制御
+   ============================================================ */
+const App = (() => {
+
+  // スプラッシュを非表示にする
+  function _dismissSplash() {
+    const splash = document.getElementById('splash');
+    if (!splash) return;
+    // 最低1秒は表示してブランドを印象付ける
+    setTimeout(() => {
+      splash.classList.add('hide');
+      setTimeout(() => splash.remove(), 650);
+    }, 900);
+  }
+  function init() {
+    _initTheme();
+    _dismissSplash();
+    Tracker.renderCategoryGrid();
+    Tracker.setDefaultTimes();
+    Tracker.bindEvents();
+    UI.bindTabNav();
+    UI.renderHeader();
+    UI.renderEntryList();
+    _checkStreak();
+    _startClock();
+    console.info('[TimeScope] initialized ✓');
+  }
+  // テーマ初期化・切替
+  function _initTheme() {
+    const saved = localStorage.getItem('ts_theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const theme = saved ?? (prefersDark ? 'dark' : 'light');
+    _applyTheme(theme);
+    document.getElementById('theme-toggle')?.addEventListener('click', () => {
+      const current = document.documentElement.dataset.theme ?? 'dark';
+      _applyTheme(current === 'dark' ? 'light' : 'dark');
+    });
+  }
+  function _applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('ts_theme', theme);
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+  }
+
+  function _checkStreak() {
+    const todayKey=Analytics.toDateKey(new Date()),lastDate=Storage.getLastDate();
+    if(!lastDate)return;
+    const yd=new Date();yd.setDate(yd.getDate()-1);
+    if(lastDate!==todayKey&&lastDate!==Analytics.toDateKey(yd)){Storage.setStreak({count:0});UI.renderHeader();}
+  }
+  function _startClock() {
+    let lastDay=new Date().toDateString();
+    setInterval(()=>{const d=new Date().toDateString();if(d!==lastDay){lastDay=d;UI.refresh();}else{UI.renderHeader();}},60000);
+  }
+  window.addEventListener('error',e=>console.error('[TimeScope] error:',e.error));
+  return { init };
+})();
+
+document.addEventListener('DOMContentLoaded', () => App.init());
+  </script>
 </body>
 </html>
