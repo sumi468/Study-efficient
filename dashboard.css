@@ -1,0 +1,369 @@
+/* ============================================================
+   dashboard.css  —  TimeScope ダッシュボード専用スタイル
+   ============================================================ */
+
+/* ---------- サマリーグリッド ---------- */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--sp-s);
+  margin-bottom: var(--sp-l);
+}
+
+.summary-card {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-l);
+  padding: var(--sp-m) var(--sp-m);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  transition: all var(--dur-fast) var(--ease-smooth);
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+}
+
+/* カテゴリカラーによるボーダーグロー */
+.summary-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--cat-color, var(--clr-accent));
+  opacity: 0.7;
+  border-radius: var(--radius-l) var(--radius-l) 0 0;
+}
+
+.summary-card:hover {
+  background: var(--clr-surface-hov);
+  border-color: var(--clr-border-bright);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glass);
+}
+
+.summary-card-icon { font-size: 1.1rem; line-height: 1; }
+
+.summary-card-label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--clr-text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.summary-card-value {
+  font-family: var(--font-mono);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--clr-text-1);
+  letter-spacing: -0.03em;
+}
+
+.summary-card-unit {
+  font-size: 0.7rem;
+  color: var(--clr-text-3);
+  margin-left: 0.2rem;
+}
+
+/* ---------- チャートグリッド ---------- */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-m);
+  margin-bottom: var(--sp-l);
+}
+
+.chart-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-m);
+}
+
+.chart-card--wide {
+  grid-column: 1 / -1;
+}
+
+.card-title {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--clr-text-2);
+  letter-spacing: -0.01em;
+}
+
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 220px;
+}
+
+.chart-container--tall {
+  height: 260px;
+}
+
+/* ---------- 週間統計グリッド ---------- */
+.weekly-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--sp-s);
+  margin-top: var(--sp-l);
+}
+
+.weekly-stat-card {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-l);
+  padding: var(--sp-m);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  transition: all var(--dur-fast) var(--ease-smooth);
+}
+
+.weekly-stat-card:hover {
+  background: var(--clr-surface-hov);
+  border-color: var(--clr-border-bright);
+}
+
+.weekly-stat-label {
+  font-size: 0.72rem;
+  color: var(--clr-text-2);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.weekly-stat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.weekly-stat-value {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--clr-text-1);
+  letter-spacing: -0.03em;
+}
+
+.weekly-stat-sub {
+  font-size: 0.72rem;
+  color: var(--clr-text-3);
+}
+
+/* ---------- 目標リスト ---------- */
+.goals-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-xs);
+  margin-bottom: var(--sp-m);
+}
+
+.goal-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-m);
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-m);
+  padding: var(--sp-m) var(--sp-l);
+  transition: all var(--dur-fast) var(--ease-smooth);
+}
+
+.goal-item:hover {
+  background: var(--clr-surface-hov);
+  border-color: var(--clr-border-bright);
+}
+
+.goal-cat-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.goal-cat-name {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--clr-text-1);
+  min-width: 60px;
+}
+
+.goal-cat-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.goal-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.goal-input {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-s);
+  padding: 0.35rem 0.6rem;
+  color: var(--clr-text-1);
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  font-weight: 600;
+  width: 60px;
+  text-align: right;
+  outline: none;
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+
+.goal-input:focus {
+  border-color: var(--clr-accent);
+  box-shadow: 0 0 0 2px var(--clr-accent-dim);
+}
+
+.goal-unit {
+  font-size: 0.78rem;
+  color: var(--clr-text-3);
+}
+
+/* ---------- 差分表示リスト ---------- */
+.diff-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-s);
+}
+
+.diff-item {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-m);
+  padding: var(--sp-m) var(--sp-l);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--sp-m);
+  transition: all var(--dur-fast) var(--ease-smooth);
+}
+
+.diff-item:hover {
+  background: var(--clr-surface-hov);
+}
+
+.diff-cat-info {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-s);
+  min-width: 80px;
+}
+
+.diff-cat-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.diff-cat-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--clr-text-1);
+}
+
+/* プログレスバー */
+.diff-bar-wrap {
+  position: relative;
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.diff-bar-ideal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(255,255,255,0.12);
+  border-radius: 999px;
+}
+
+.diff-bar-actual {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 999px;
+  transition: width var(--dur-slow) var(--ease-smooth);
+}
+
+/* 差分テキスト */
+.diff-values {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.diff-actual {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--clr-text-1);
+}
+
+.diff-ideal {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--clr-text-3);
+  display: block;
+}
+
+.diff-delta {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  margin-top: 0.15rem;
+}
+
+.diff-delta.over   { color: #34d399; } /* 超過（達成）*/
+.diff-delta.under  { color: #f87171; } /* 不足 */
+.diff-delta.on-track { color: var(--clr-text-2); }
+
+/* ---------- レスポンシブ ---------- */
+@media (max-width: 600px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-card--wide {
+    grid-column: 1;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .diff-item {
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  .diff-values {
+    grid-column: 2;
+    grid-row: 2;
+    text-align: left;
+  }
+
+  .diff-bar-wrap {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    margin-top: var(--sp-xs);
+  }
+
+  .goal-item {
+    flex-wrap: wrap;
+    padding: var(--sp-m);
+  }
+}

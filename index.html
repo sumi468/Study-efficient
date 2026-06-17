@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TimeScope</title>
+
+  <!-- スタイルシート -->
+  <link rel="stylesheet" href="styles/main.css" />
+  <link rel="stylesheet" href="styles/dashboard.css" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- ==============================
+       アプリ全体ラッパー
+  ================================= -->
+  <div id="app">
+
+    <!-- ========== ヘッダー ========== -->
+    <header class="app-header">
+      <div class="header-inner">
+        <div class="logo">
+          <span class="logo-icon">◎</span>
+          <span class="logo-text">TimeScope</span>
+        </div>
+        <div class="header-meta">
+          <span id="today-date" class="header-date"></span>
+          <div class="streak-badge" id="streak-badge" title="連続記録日数">
+            <span class="streak-icon">🔥</span>
+            <span id="streak-count">0</span>
+            <span class="streak-label">day streak</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ========== メインコンテンツ ========== -->
+    <main class="app-main">
+
+      <!-- ナビゲーションタブ -->
+      <nav class="tab-nav" role="tablist">
+        <button class="tab-btn active" data-tab="tracker" role="tab" aria-selected="true">
+          <span class="tab-icon">⏱</span>
+          <span class="tab-label">記録</span>
+        </button>
+        <button class="tab-btn" data-tab="dashboard" role="tab" aria-selected="false">
+          <span class="tab-icon">◈</span>
+          <span class="tab-label">今日</span>
+        </button>
+        <button class="tab-btn" data-tab="weekly" role="tab" aria-selected="false">
+          <span class="tab-icon">〜</span>
+          <span class="tab-label">週間</span>
+        </button>
+        <button class="tab-btn" data-tab="goals" role="tab" aria-selected="false">
+          <span class="tab-icon">◎</span>
+          <span class="tab-label">目標</span>
+        </button>
+      </nav>
+
+      <!-- ===== タブ: 記録 ===== -->
+      <section class="tab-panel active" id="tab-tracker" role="tabpanel">
+        <div class="section-header">
+          <h2 class="section-title">時間を記録する</h2>
+          <p class="section-subtitle">活動の開始・終了時間とカテゴリを入力してください</p>
+        </div>
+
+        <!-- 記録フォーム -->
+        <div class="glass-card tracker-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="input-start">開始時間</label>
+              <input class="form-input" type="time" id="input-start" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="input-end">終了時間</label>
+              <input class="form-input" type="time" id="input-end" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">カテゴリ</label>
+            <div class="category-grid" id="category-grid">
+              <!-- tracker.js が動的生成 -->
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="input-memo">メモ（任意）</label>
+            <input class="form-input" type="text" id="input-memo" placeholder="例: 英語の勉強、チームMTG..." maxlength="80" />
+          </div>
+
+          <button class="btn-primary" id="btn-add-entry">
+            <span>記録を追加</span>
+            <span class="btn-arrow">→</span>
+          </button>
+        </div>
+
+        <!-- 今日の履歴 -->
+        <div class="section-header" style="margin-top: 2.5rem;">
+          <h2 class="section-title">今日の記録</h2>
+          <span class="entry-count-badge" id="entry-count-badge">0 件</span>
+        </div>
+        <div id="entry-list" class="entry-list">
+          <!-- ui.js が動的生成 -->
+        </div>
+        <p class="empty-state" id="empty-state">まだ記録がありません。<br>最初の活動を記録してみましょう。</p>
+      </section>
+
+      <!-- ===== タブ: 今日のダッシュボード ===== -->
+      <section class="tab-panel" id="tab-dashboard" role="tabpanel">
+        <div class="section-header">
+          <h2 class="section-title">今日の分析</h2>
+          <p class="section-subtitle">カテゴリ別の時間配分を確認</p>
+        </div>
+
+        <!-- サマリーカード -->
+        <div class="summary-grid" id="summary-grid">
+          <!-- ui.js が動的生成 -->
+        </div>
+
+        <!-- チャートエリア -->
+        <div class="charts-grid">
+          <div class="glass-card chart-card">
+            <h3 class="card-title">時間配分</h3>
+            <div class="chart-container">
+              <canvas id="chart-pie"></canvas>
+            </div>
+          </div>
+          <div class="glass-card chart-card">
+            <h3 class="card-title">カテゴリ別合計（時間）</h3>
+            <div class="chart-container">
+              <canvas id="chart-bar"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== タブ: 週間分析 ===== -->
+      <section class="tab-panel" id="tab-weekly" role="tabpanel">
+        <div class="section-header">
+          <h2 class="section-title">週間分析</h2>
+          <p class="section-subtitle">過去7日間の時間の使い方</p>
+        </div>
+
+        <div class="glass-card chart-card chart-card--wide">
+          <h3 class="card-title">カテゴリ別・週間推移</h3>
+          <div class="chart-container chart-container--tall">
+            <canvas id="chart-weekly"></canvas>
+          </div>
+        </div>
+
+        <div class="weekly-stats-grid" id="weekly-stats-grid">
+          <!-- ui.js が動的生成 -->
+        </div>
+      </section>
+
+      <!-- ===== タブ: 目標設定 ===== -->
+      <section class="tab-panel" id="tab-goals" role="tabpanel">
+        <div class="section-header">
+          <h2 class="section-title">理想時間の設定</h2>
+          <p class="section-subtitle">1日の理想的な時間配分を設定してください</p>
+        </div>
+
+        <div class="goals-list" id="goals-list">
+          <!-- ui.js が動的生成 -->
+        </div>
+
+        <!-- 差分表示 -->
+        <div class="section-header" style="margin-top: 2.5rem;">
+          <h2 class="section-title">現実 vs 理想</h2>
+          <p class="section-subtitle">今日の実績と目標の差分</p>
+        </div>
+        <div class="diff-list" id="diff-list">
+          <!-- ui.js が動的生成 -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ========== トースト通知 ========== -->
+    <div id="toast" class="toast" aria-live="polite"></div>
+
+  </div><!-- /#app -->
+
+  <!-- スクリプト（依存順） -->
+  <script src="scripts/storage.js"></script>
+  <script src="scripts/analytics.js"></script>
+  <script src="scripts/tracker.js"></script>
+  <script src="scripts/ui.js"></script>
+  <script src="scripts/app.js"></script>
+
+</body>
+</html>
